@@ -10,13 +10,17 @@ class Turntable(wx.Panel):
         self.pos = None
         self.selected = None
 
+        # rotationsPerSecond is 33 1/3 divided by seconds per minute 
         self.rotationsPerSecond = (100/3.0) / 60.0
-
 
         self.millisAtOrigin = None
         self.curMillis = None
         self.curRotateFactor = None
         self.origRotateFactor = None
+
+        
+        self.motorOn = True
+        self.drop = True # 'drop' in DJ talk means vinyl is being rotated by the motor of the turntable
 
         print "Rotations per second", self.rotationsPerSecond
 
@@ -33,7 +37,8 @@ class Turntable(wx.Panel):
         else:
             self.curMillis = int(round(time.time() * 1000))
 
-        elapsedMs = float(self.millisAtOrigin - self.curMillis)
+        elapsedMs = float(self.curMillis - self.millisAtOrigin)
+        print "elapsedMs is ", elapsedMs 
 
         radRotateFactor = ((math.pi * 2.0) * (self.rotationsPerSecond * elapsedMs * 0.001))
 
@@ -71,10 +76,10 @@ class Turntable(wx.Panel):
         dc.SetPen(wx.Pen("#00FFFF"))
         for i in range(0,12):
             rads = i * ((2 * math.pi) / 12)
-            startXLinePos = math.cos(rads - self.curRotateFactor) * (labelW/2) + middleXPos
-            startYLinePos = math.sin(rads - self.curRotateFactor) * (labelW/2) + middleYPos
-            endXLinePos = math.cos(rads - self.curRotateFactor) * (w/2) + middleXPos
-            endYLinePos = math.sin(rads - self.curRotateFactor) * (w/2) + middleYPos
+            startXLinePos = math.cos(rads + self.curRotateFactor) * (labelW/2) + middleXPos
+            startYLinePos = math.sin(rads + self.curRotateFactor) * (labelW/2) + middleYPos
+            endXLinePos = math.cos(rads + self.curRotateFactor) * (w/2) + middleXPos
+            endYLinePos = math.sin(rads + self.curRotateFactor) * (w/2) + middleYPos
             if (i != 11):
                 dc.DrawLine(startXLinePos, startYLinePos, endXLinePos, endYLinePos)
             else:
