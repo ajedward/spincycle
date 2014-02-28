@@ -34,11 +34,10 @@ class MyFrame(wx.Frame):
         self.Show()
 
     def OnPaint(self, evt):
-        print "TRACE: MyFrame Paint()"
+        pass
+        #print "TRACE: MyFrame Paint()"
 
     def OnTimer(self, event):
-        self.turntableL.Update()
-        self.turntableR.Update()
         self.turntableL.Refresh()
         self.turntableR.Refresh()
         

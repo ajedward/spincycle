@@ -13,7 +13,7 @@ class Turntable(wx.Panel):
         # rotationsPerSecond is 33 1/3 divided by seconds per minute 
         self.rotationsPerSecond = (100/3.0) / 60.0
 
-        self.millisAtOrigin = None
+        self.millisAtLastPaint = None
         self.curMillis = None
         self.curRotateFactor = None
         self.origRotateFactor = None
@@ -31,21 +31,24 @@ class Turntable(wx.Panel):
         
     def OnPaint(self, evt):
 
-        print "TRACE: OnPaint"
-        if (self.curMillis == None):
-            self.curMillis = self.millisAtOrigin = int(round(time.time() * 1000))
+        #print "TRACE: OnPaint"
+        if self.curMillis == None:
+            self.curMillis = self.millisAtLastPaint = int(round(time.time() * 1000))
         else:
             self.curMillis = int(round(time.time() * 1000))
 
-        elapsedMs = float(self.curMillis - self.millisAtOrigin)
-        print "elapsedMs is ", elapsedMs 
+        # elapsedMs are the MS since the last paint event.  We use this to increment LP rotation.
+        elapsedMs = float(self.curMillis - self.millisAtLastPaint)
 
+        #print "TRACE: elapsedMs is ", elapsedMs 
+
+        # rotation factor since last paint.
         radRotateFactor = ((math.pi * 2.0) * (self.rotationsPerSecond * elapsedMs * 0.001))
 
-        if (self.curRotateFactor == None):
+        if self.curRotateFactor == None:
             self.curRotateFactor = self.origRotateFactor = 0
-        else:
-            self.curRotateFactor = radRotateFactor
+        elif self.drop:
+            self.curRotateFactor += radRotateFactor
 
         w,h = self.GetSize()
         dc = wx.AutoBufferedPaintDC(self)
@@ -81,7 +84,8 @@ class Turntable(wx.Panel):
             endXLinePos = math.cos(rads + self.curRotateFactor) * (w/2) + middleXPos
             endYLinePos = math.sin(rads + self.curRotateFactor) * (w/2) + middleYPos
             if (i != 11):
-                dc.DrawLine(startXLinePos, startYLinePos, endXLinePos, endYLinePos)
+                pass
+                #dc.DrawLine(startXLinePos, startYLinePos, endXLinePos, endYLinePos)
             else:
                 # draw a special red marker that marks the beginning of the sample
                 # (at 2:00 o'clock, 11th position counterclockwise from horizontal origin).
@@ -92,6 +96,9 @@ class Turntable(wx.Panel):
 
         # reset pen to black, 1 pixel.
         dc.SetPen(wx.Pen("#000000", 1))
+
+        # make sure that millisAtLastPaint is set.
+        self.millisAtLastPaint = self.curMillis
 
         # draw the marker that indicates the 'scratch sample' begin position
         # draw the label at 2 o'clock (11/12 running counter clockwise
@@ -106,6 +113,7 @@ class Turntable(wx.Panel):
 #                         startLabelH)
 
     def MouseDown(self, evt):
+        self.drop = False
         self.CaptureMouse()
         self.pos = evt.GetPosition()
         print "TRACE: mouse down, position is ", self.pos
@@ -113,6 +121,7 @@ class Turntable(wx.Panel):
 
     def MouseUp(self, evt):
         if self.HasCapture():
+            self.drop = True
             self.pos = evt.GetPosition()
             print "TRACE: mouse up, position is ", self.pos
             self.ReleaseMouse()
@@ -122,8 +131,28 @@ class Turntable(wx.Panel):
     def Motion(self, evt):
         w,h = self.GetSize()
         if self.HasCapture():
+            (xPos, yPos) = evt.GetPosition()
+            print "TRACE: moving mouse ", (xPos, yPos)
+
+            # index zero is xPos, index 1 is yPos
+            #xPos = self.pos[0]
+            #yPos = self.pos[1]
+
+            # if yDiff is negative, we are moving down.  If yDiff is positive, we are going up.
+            yDiff = yPos - self.pos[1]
+
+            directionString = "NOWHERE"
+
+            if yDiff < 0:
+                directionString = "UP"
+            elif yDiff > 0:
+                directionString = "DOWN"
+
+            print "TRACE: we are going ", directionString
+
+            self.curRotateFactor += (-yDiff * 2 * math.pi) / 300
+
             self.pos = evt.GetPosition()
-            print "TRACE: moving mouse ", self.pos
             if self.pos[0] < 0:
                 self.pos[0] = 0
             elif self.pos[0] > w:
