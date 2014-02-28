@@ -1,46 +1,47 @@
 import wx
 from random import randint
 import math
+import time
 
-class Node:
-    def __init__(self, x, y):
-        self.pos = (x, y)
-        
-    def setPos(self, pt):
-        self.pos = pt
-    
-    def getPos(self):
-        return self.pos
-        
-    def contains(self, pt):
-        area = wx.Rect(self.pos[0]-6, self.pos[1]-6, 13, 13)
-        if area.Contains(pt):
-            return True
-        else:
-            return False
-    
 class Turntable(wx.Panel):
-    def __init__(self, parent, pos, size, length=0, callback=None):
+    def __init__(self, parent, pos, size):
         wx.Panel.__init__(self, parent=parent, pos=pos, size=size)
         self.SetBackgroundStyle(wx.BG_STYLE_CUSTOM)
         self.pos = None
         self.selected = None
-#        self.nodes = [Node(randint(20,380), randint(20,380)) for i in range(length)]
-        self.callback = callback
+
+        self.rotationsPerSecond = (100/3.0) / 60.0
+
+
+        self.millisAtOrigin = None
+        self.curMillis = None
+        self.curRotateFactor = None
+        self.origRotateFactor = None
+
+        print "Rotations per second", self.rotationsPerSecond
 
         self.Bind(wx.EVT_PAINT, self.OnPaint)
         self.Bind(wx.EVT_LEFT_DOWN, self.MouseDown)
         self.Bind(wx.EVT_LEFT_UP, self.MouseUp)
         self.Bind(wx.EVT_MOTION, self.Motion)
         
-        # HACK!
-#        for i in range(length):
-#            self.pos = self.nodes[i].getPos()
-#            self.selected = i
-#            self.OnPaint(None)
-#        self.pos = self.selected = None
-
     def OnPaint(self, evt):
+
+        print "TRACE: OnPaint"
+        if (self.curMillis == None):
+            self.curMillis = self.millisAtOrigin = int(round(time.time() * 1000))
+        else:
+            self.curMillis = int(round(time.time() * 1000))
+
+        elapsedMs = float(self.millisAtOrigin - self.curMillis)
+
+        radRotateFactor = ((math.pi * 2.0) * (self.rotationsPerSecond * elapsedMs * 0.001))
+
+        if (self.curRotateFactor == None):
+            self.curRotateFactor = self.origRotateFactor = 0
+        else:
+            self.curRotateFactor = radRotateFactor
+
         w,h = self.GetSize()
         dc = wx.AutoBufferedPaintDC(self)
 
@@ -66,21 +67,25 @@ class Turntable(wx.Panel):
                        spindleW,
                        spindleW)
 
-        #draw the blue radius guide lines
+        #draw the teal radius guide lines
         dc.SetPen(wx.Pen("#00FFFF"))
         for i in range(0,12):
             rads = i * ((2 * math.pi) / 12)
-            startXLinePos = math.cos(rads) * (labelW/2) + middleXPos
-            startYLinePos = math.sin(rads) * (labelW/2) + middleYPos
-            endXLinePos = math.cos(rads) * (w/2) + middleXPos
-            endYLinePos = math.sin(rads) * (w/2) + middleYPos
+            startXLinePos = math.cos(rads - self.curRotateFactor) * (labelW/2) + middleXPos
+            startYLinePos = math.sin(rads - self.curRotateFactor) * (labelW/2) + middleYPos
+            endXLinePos = math.cos(rads - self.curRotateFactor) * (w/2) + middleXPos
+            endYLinePos = math.sin(rads - self.curRotateFactor) * (w/2) + middleYPos
             if (i != 11):
                 dc.DrawLine(startXLinePos, startYLinePos, endXLinePos, endYLinePos)
             else:
-                dc.SetPen(wx.Pen("#FF0000", 3))
+                # draw a special red marker that marks the beginning of the sample
+                # (at 2:00 o'clock, 11th position counterclockwise from horizontal origin).
+                penSize = 3
+                dc.SetPen(wx.Pen("#FF0000", penSize))
                 dc.DrawLine(startXLinePos, startYLinePos, endXLinePos, endYLinePos)
                 dc.SetPen(wx.Pen("#00FFFF", 1))
 
+        # reset pen to black, 1 pixel.
         dc.SetPen(wx.Pen("#000000", 1))
 
         # draw the marker that indicates the 'scratch sample' begin position
@@ -95,45 +100,11 @@ class Turntable(wx.Panel):
 #                         startLabelW,
 #                         startLabelH)
 
-#        dc.SetPen(wx.Pen("#666666"))
-#        dc.SetTextForeground("#AAAAAA")
-#        for i in range(0, w, 50):
-#            dc.DrawLine(i, 0, i, h)
-#            dc.DrawText("%.2f" % (i/float(w)), i+2, h-12)
-#            #tw, th = dc.GetTextExtent("%.2f" % (i/float(w)))
-#        for i in range(0, h, 50):
-#            dc.DrawLine(0, i, w, i)
-#            dc.DrawText("%.2f" % (1-i/float(h)), 2, i+2)
-#
-#        if self.pos != None:
-#            dc.SetPen(wx.Pen("#AAAAAA"))
-#            x = self.pos[0] / float(w)
-#            y = 1 - self.pos[1] / float(h)
-#            dc.DrawText("%.3f, %.3f" % (x, y), w-80, 5)
-#
-#            if self.selected != None:
-#                self.nodes[self.selected].setPos(self.pos)
-#                if self.callback != None:
-#                    self.callback(x, y, self.selected)
-#                dc.DrawLine(0, self.pos[1], w, self.pos[1])
-#                dc.DrawLine(self.pos[0], 0, self.pos[0], h)
-#            
-#        dc.SetPen(wx.Pen("#FFFFFF", width=1))
-#        dc.SetBrush(wx.Brush("#FF0000"))
-#        for node in self.nodes:
-#            dc.DrawCirclePoint(node.getPos(), radius=5)
-
     def MouseDown(self, evt):
         self.CaptureMouse()
         self.pos = evt.GetPosition()
         print "TRACE: mouse down, position is ", self.pos
 
-
-#        for i, node in enumerate(self.nodes):
-#            if node.contains(self.pos):
-#                self.selected = i
-#                break
-#        self.Refresh()
 
     def MouseUp(self, evt):
         if self.HasCapture():
@@ -171,4 +142,4 @@ if __name__ == "__main__":
 
     app = wx.App(False)
     frame = MyFrame()
-    app.MainLoop()#!/usr/bin/python
+    app.MainLoop()
