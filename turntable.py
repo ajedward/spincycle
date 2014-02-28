@@ -3,6 +3,23 @@ from random import randint
 import math
 import time
 
+""" 
+  La class Turntable, lorsque attache a un Panel ou un Frame, affiche une table tournante qui permet plusieurs
+  fonctions, tels que :
+  - Demarrer/arreter (bouton moteur) complete
+    TODO: ajouter un 'ease' pour que ca commence et arrete tranquillement.
+  - Rotation de la table tournante.
+  - Arret du disque 'vinyle' lorsque la souris est 'clique'
+  - Mouvement du disque 'vinyle' lorsque la souris est bouge avec le bouton envonce
+    TODO: percevoir la position sur le disque, inverser sur le cote droite, appliquer
+          sur l'axe des 'X' lorsqu'on se trouve en haut ou en bas du disque
+  - TODO: Verser des 'samples' en format WAV, AIF, etc. pour chaque table tournante.
+  - TODO: Faders, et Crossfader.
+  - TODO: Engin de granulation qui permet de controller la position dans le sample 
+          et la frequence avec la manipulation des vinyles.
+  - TODO: 'raideur' du cross-fade.
+"""
+
 class Turntable(wx.Panel):
     def __init__(self, parent, pos, size):
         wx.Panel.__init__(self, parent=parent, pos=pos, size=size)
@@ -16,19 +33,26 @@ class Turntable(wx.Panel):
         self.millisAtLastPaint = None
         self.curMillis = None
         self.curRotateFactor = None
-        self.origRotateFactor = None
 
+        self.motorOnButton = wx.ToggleButton(self, id=1, label="Moteur", pos=(320,320))
+        self.motorOnButton.SetValue(True)
         
         self.motorOn = True
         self.drop = True # 'drop' in DJ talk means vinyl is being rotated by the motor of the turntable
 
-        print "Rotations per second", self.rotationsPerSecond
+        #print "TRACE: Rotations per second", self.rotationsPerSecond
 
         self.Bind(wx.EVT_PAINT, self.OnPaint)
         self.Bind(wx.EVT_LEFT_DOWN, self.MouseDown)
         self.Bind(wx.EVT_LEFT_UP, self.MouseUp)
         self.Bind(wx.EVT_MOTION, self.Motion)
+
+        self.Bind(wx.EVT_TOGGLEBUTTON, self.ToggleMotor, id=1)
         
+    def ToggleMotor(self, evt):
+        print "TRACE: ToggleMotor()"
+        self.motorOn = self.motorOnButton.GetValue()
+
     def OnPaint(self, evt):
 
         #print "TRACE: OnPaint"
@@ -46,15 +70,20 @@ class Turntable(wx.Panel):
         radRotateFactor = ((math.pi * 2.0) * (self.rotationsPerSecond * elapsedMs * 0.001))
 
         if self.curRotateFactor == None:
-            self.curRotateFactor = self.origRotateFactor = 0
-        elif self.drop:
+            self.curRotateFactor = 0
+        elif self.drop and self.motorOn:
             self.curRotateFactor += radRotateFactor
 
         w,h = self.GetSize()
+
+        # ajust the width and height such that they are slightly smaller than the entire container
+        w -= (w/12)
+        h -= (h/12)
+
         dc = wx.AutoBufferedPaintDC(self)
 
         # draw the vinyl album.
-        dc.SetBrush(wx.Brush("#444444"))
+        dc.SetBrush(wx.Brush("#222222"))
         dc.DrawEllipse(0,0,w,h)
 
         # draw the label of the vinyl album
@@ -85,6 +114,8 @@ class Turntable(wx.Panel):
             endYLinePos = math.sin(rads + self.curRotateFactor) * (w/2) + middleYPos
             if (i != 11):
                 pass
+                #disabled the sectional indicators for now, there were some refresh issues
+                # that were visually distracting.
                 #dc.DrawLine(startXLinePos, startYLinePos, endXLinePos, endYLinePos)
             else:
                 # draw a special red marker that marks the beginning of the sample
@@ -134,10 +165,6 @@ class Turntable(wx.Panel):
             (xPos, yPos) = evt.GetPosition()
             print "TRACE: moving mouse ", (xPos, yPos)
 
-            # index zero is xPos, index 1 is yPos
-            #xPos = self.pos[0]
-            #yPos = self.pos[1]
-
             # if yDiff is negative, we are moving down.  If yDiff is positive, we are going up.
             yDiff = yPos - self.pos[1]
 
@@ -152,15 +179,7 @@ class Turntable(wx.Panel):
 
             self.curRotateFactor += (-yDiff * 2 * math.pi) / 300
 
-            self.pos = evt.GetPosition()
-            if self.pos[0] < 0:
-                self.pos[0] = 0
-            elif self.pos[0] > w:
-                self.pos[0] = w
-            if self.pos[1] < 0:
-                self.pos[1] = 0
-            elif self.pos[1] > h:
-                self.pos[1] = h
+            self.pos = (xPos, yPos)
             self.Refresh()
 
 if __name__ == "__main__":
