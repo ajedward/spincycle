@@ -2,6 +2,7 @@ import wx
 from random import randint
 import math
 import time
+import os.path
 
 """ 
   La class Turntable, lorsque attache a un Panel ou un Frame, affiche une table tournante qui permet plusieurs
@@ -34,28 +35,48 @@ class Turntable(wx.Panel):
         self.curMillis = None
         self.curRotateFactor = None
 
+        self.currentFilePath = None
+
+        w,h = self.GetSize()
         self.motorOnButton = wx.ToggleButton(self, id=1, label="Moteur", pos=(320,320))
         self.motorOnButton.SetValue(True)
+        self.resetButton = wx.Button(self, id=2, label="Reset", pos=(320,340))
+        self.dirPathCtrl = wx.TextCtrl(self, id=3, value='<set a value>', pos=(50,h-120), size=(w-100,20))
+        self.fileNameCtrl = wx.TextCtrl(self, id=4, value='<set a value>', pos=(50,h-90), size=(w-200,20))
+        self.revCountCtrl = wx.TextCtrl(self, id=5, value='rev 0', pos=(w-150,h-90), size=(100,20))
         
         self.motorOn = True
         self.drop = True # 'drop' in DJ talk means vinyl is being rotated by the motor of the turntable
 
         #print "TRACE: Rotations per second", self.rotationsPerSecond
 
-        self.Bind(wx.EVT_PAINT, self.OnPaint)
-        self.Bind(wx.EVT_LEFT_DOWN, self.MouseDown)
-        self.Bind(wx.EVT_LEFT_UP, self.MouseUp)
-        self.Bind(wx.EVT_MOTION, self.Motion)
+        self.Bind(wx.EVT_PAINT, self.onPaint)
+        self.Bind(wx.EVT_LEFT_DOWN, self.onMouseDown)
+        self.Bind(wx.EVT_LEFT_UP, self.onMouseUp)
+        self.Bind(wx.EVT_MOTION, self.onMotion)
 
-        self.Bind(wx.EVT_TOGGLEBUTTON, self.ToggleMotor, id=1)
+        self.Bind(wx.EVT_TOGGLEBUTTON, self.toggleMotor, id=1)
+        self.Bind(wx.EVT_BUTTON, self.reset, id=2)
         
-    def ToggleMotor(self, evt):
-        print "TRACE: ToggleMotor()"
+    def setCurrentFilePath(self, path):
+        print "TRACE: setCurrentFilePath()"
+        self.currentFilePath = path
+        self.dirPathCtrl.SetValue(os.path.dirname(self.currentFilePath))
+        self.fileNameCtrl.SetValue(os.path.basename(self.currentFilePath))
+
+    def reset(self, evt):
+        print "TRACE: reset()"
+        self.millisAtLastPaint = None
+        self.curMillis = None
+        self.curRotateFactor = None
+
+    def toggleMotor(self, evt):
+        print "TRACE: toggleMotor()"
         self.motorOn = self.motorOnButton.GetValue()
 
-    def OnPaint(self, evt):
+    def onPaint(self, evt):
 
-        #print "TRACE: OnPaint"
+        #print "TRACE: onPaint"
         if self.curMillis == None:
             self.curMillis = self.millisAtLastPaint = int(round(time.time() * 1000))
         else:
@@ -74,9 +95,12 @@ class Turntable(wx.Panel):
         elif self.drop and self.motorOn:
             self.curRotateFactor += radRotateFactor
 
+        # update the revolution counter.
+        self.revCountCtrl.SetValue('rev ' + str(round(self.curRotateFactor / (math.pi * 2),1)))
         w,h = self.GetSize()
 
         # ajust the width and height such that they are slightly smaller than the entire container
+        h = w
         w -= (w/12)
         h -= (h/12)
 
@@ -143,14 +167,14 @@ class Turntable(wx.Panel):
 #                         startLabelW,
 #                         startLabelH)
 
-    def MouseDown(self, evt):
+    def onMouseDown(self, evt):
         self.drop = False
         self.CaptureMouse()
         self.pos = evt.GetPosition()
         print "TRACE: mouse down, position is ", self.pos
 
 
-    def MouseUp(self, evt):
+    def onMouseUp(self, evt):
         if self.HasCapture():
             self.drop = True
             self.pos = evt.GetPosition()
@@ -159,7 +183,7 @@ class Turntable(wx.Panel):
             self.pos = self.selected = None
             self.Refresh()
 
-    def Motion(self, evt):
+    def onMotion(self, evt):
         w,h = self.GetSize()
         if self.HasCapture():
             (xPos, yPos) = evt.GetPosition()
